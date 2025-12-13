@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
@@ -16,6 +17,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { targetCompanies } from '../data/companiesData';
 import { startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
 import COLORS from '../constants/colors';
+
+const getCompanyLogoUrl = (companyName: string): string | null => {
+  const logoMap: Record<string, string> = {
+    'Meta': 'https://logos-world.net/wp-content/uploads/2021/11/Meta-Logo-700x394.png',
+    'Google': 'https://static.dezeen.com/uploads/2025/05/sq-google-g-logo-update_dezeen_2364_col_0.jpg',
+    'Amazon': 'https://upload.wikimedia.org/wikipedia/commons/d/de/Amazon_icon.png',
+    'Apple': 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTJbYc7CZHe1BoOi9VxIheW1rA5Jllj40NX2w&s',
+    'TikTok': 'https://res.cloudinary.com/zenbusiness/q_auto,w_1024/v1670445040/logaster/logaster-2020-06-image4-1024x576-1024x576.jpg',
+  };
+  return logoMap[companyName] || null;
+};
 
 export default function DashboardScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
@@ -102,8 +114,10 @@ export default function DashboardScreen({ navigation }: any) {
       {/* Header with improved positioning - 1/4 inch lower */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top - 2, 28) }]}>
         <View style={styles.headerContent}>
-          <View>
-            <Text style={styles.greeting}>Welcome back, {currentUser?.name}!</Text>
+          <View style={styles.greetingContainer}>
+            <Text style={styles.greeting} numberOfLines={2} ellipsizeMode="tail">
+              Welcome back, {currentUser?.name}!
+            </Text>
             <Text style={styles.subtitle}>Here's your job search progress</Text>
           </View>
           <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
@@ -198,13 +212,22 @@ export default function DashboardScreen({ navigation }: any) {
                 const companyApplications = targetCompanyApplications.filter(app =>
                   company.name.toLowerCase() === app.company.toLowerCase()
                 );
+                const logoUrl = getCompanyLogoUrl(company.name);
                 return (
                   <TouchableOpacity
                     key={company.id}
                     style={styles.targetCompanyCard}
                     onPress={() => navigation.navigate('Targets')}
                   >
-                    <Text style={styles.targetCompanyLogo}>{company.logo}</Text>
+                    {logoUrl ? (
+                      <Image 
+                        source={{ uri: logoUrl }} 
+                        style={styles.targetCompanyLogoImage}
+                        resizeMode="contain"
+                      />
+                    ) : (
+                      <Text style={styles.targetCompanyLogo}>{company.logo}</Text>
+                    )}
                     <Text style={styles.targetCompanyName}>{company.name}</Text>
                     <View style={styles.targetCompanyStats}>
                       <Text style={styles.targetCompanyStatsText}>
@@ -308,6 +331,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    gap: 12,
+  },
+  greetingContainer: {
+    flex: 1,
+    flexShrink: 1,
+    marginRight: 12,
   },
   greeting: {
     fontSize: 24,
@@ -328,6 +357,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9fafb',
     borderWidth: 1,
     borderColor: '#e5e7eb',
+    flexShrink: 0,
   },
   signOutText: {
     fontSize: 14,
@@ -420,6 +450,12 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   targetCompanyLogo: { fontSize: 32, marginBottom: 8 },
+  targetCompanyLogoImage: {
+    width: 40,
+    height: 40,
+    marginBottom: 8,
+    borderRadius: 8,
+  },
   targetCompanyName: {
     fontSize: 14,
     fontWeight: 'bold',
