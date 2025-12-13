@@ -14,6 +14,10 @@ export interface JobDetails {
 
 export const tailorResume = async (resumeUri: string, jobDetails: JobDetails): Promise<string> => {
     try {
+        if (!ANTHROPIC_API_KEY) {
+            throw new Error('Anthropic API Key is missing. Please check your .env file and restart the app.');
+        }
+
         // Read the file as Base64
         const resumeBase64 = await FileSystem.readAsStringAsync(resumeUri, {
             encoding: 'base64',

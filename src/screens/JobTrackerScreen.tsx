@@ -15,16 +15,26 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
-import { RootState } from '../store';
-import { addApplication, updateApplication, deleteApplication, setWeeklyGoal } from '../store/applicationsSlice';
+import { RootState, AppDispatch } from '../store';
+import {
+  addApplicationThunk,
+  updateApplicationThunk,
+  deleteApplicationThunk,
+  setWeeklyGoal,
+  setFilterStatus,
+  fetchApplications
+} from '../store/applicationsSlice';
 import { Application, ApplicationStatus } from '../types';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import COLORS from '../constants/colors';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
 
 export default function JobTrackerScreen() {
-  const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
+  const dispatch = useDispatch<AppDispatch>();
+  const navigation = useNavigation<NavigationProp<any>>();
+  const { currentUser } = useSelector((state: RootState) => state.user);
   const { applications, weeklyGoal } = useSelector((state: RootState) => state.applications);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showGoalModal, setShowGoalModal] = useState(false);
@@ -66,50 +76,66 @@ export default function JobTrackerScreen() {
       return;
     }
 
-    if (editingApplication) {
+    const applicationData = {
+      company: formData.company,
+      role: formData.role,
+      location: formData.location || 'Not specified',
+      jobLink: formData.jobLink,
+      notes: formData.notes,
+    };
+
+    if (editingApplication && currentUser?.id) {
       // Update existing application
-      dispatch(updateApplication({
-        id: editingApplication.id,
+      dispatch(updateApplicationThunk({
+        userId: currentUser.id,
+        applicationId: editingApplication.id,
         updates: {
-          company: formData.company,
-          role: formData.role,
-          location: formData.location || 'Not specified',
-          jobLink: formData.jobLink,
-          notes: formData.notes,
+          ...applicationData,
         }
       }));
       setEditingApplication(null);
-    } else {
+    } else if (currentUser?.id) {
       // Create new application
       const newApplication: Application = {
         id: Date.now().toString(),
-        company: formData.company,
-        role: formData.role,
-        location: formData.location || 'Not specified',
+        ...applicationData,
         status: 'Applied',
         appliedDate: new Date().toISOString(),
-        notes: formData.notes,
-        jobLink: formData.jobLink,
       };
-
-      dispatch(addApplication(newApplication));
+      dispatch(addApplicationThunk({ userId: currentUser.id, application: newApplication }));
     }
 
     setFormData({ company: '', role: '', location: '', jobLink: '', notes: '' });
     setShowAddModal(false);
   };
 
-  const handleUpdateStatus = (applicationId: string, newStatus: ApplicationStatus) => {
-    dispatch(updateApplication({ id: applicationId, updates: { status: newStatus } }));
+  const handleStatusChange = (id: string, newStatus: ApplicationStatus) => {
+    if (currentUser?.id) {
+      dispatch(updateApplicationThunk({
+        userId: currentUser.id,
+        applicationId: id,
+        updates: {
+          status: newStatus,
+        }
+      }));
+    }
   };
 
-  const handleDeleteApplication = (applicationId: string) => {
+  const handleDelete = (id: string) => {
     Alert.alert(
       'Delete Application',
       'Are you sure you want to delete this application?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => dispatch(deleteApplication(applicationId)) },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            if (currentUser?.id) {
+              dispatch(deleteApplicationThunk({ userId: currentUser.id, applicationId: id }));
+            }
+          }
+        },
       ]
     );
   };
@@ -174,7 +200,9 @@ export default function JobTrackerScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            selectedApplications.forEach(id => dispatch(deleteApplication(id)));
+            if (currentUser?.id) {
+              selectedApplications.forEach(id => dispatch(deleteApplicationThunk({ userId: currentUser.id, applicationId: id })));
+            }
             exitSelectionMode();
           },
         },
@@ -296,7 +324,7 @@ export default function JobTrackerScreen() {
 
   return (
     <>
-    <View style={styles.container}>
+      <View style={styles.container}>
         <View style={[styles.header, { paddingTop: Math.max(insets.top - 12, 23) }]}>
           {isSelectionMode ? (
             <>
@@ -571,7 +599,7 @@ export default function JobTrackerScreen() {
                 <StatusDropdown
                   currentStatus={selectedApplication.status}
                   onStatusChange={(newStatus) => {
-                    handleUpdateStatus(selectedApplication.id, newStatus);
+                    handleStatusChange(selectedApplication.id, newStatus);
                     setSelectedApplication({ ...selectedApplication, status: newStatus });
                   }}
                 />

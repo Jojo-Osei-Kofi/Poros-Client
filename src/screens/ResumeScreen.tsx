@@ -11,29 +11,33 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSelector, useDispatch } from 'react-redux';
-import { RootState } from '../store';
+import { WebView } from 'react-native-webview';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState, AppDispatch } from '../store';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { format } from 'date-fns';
 import * as Sharing from 'expo-sharing';
-import { WebView } from 'react-native-webview';
 import {
-  addResume,
-  deleteResume,
-  setPrimaryResume,
-  updateResumeName,
-  startResumeTailoring,
+  deleteResumeThunk,
+  deleteTailoredResumeThunk,
+  setPrimaryResumeThunk,
+  renameResumeThunk,
   completeTailoring,
   deleteTailoredResume,
+  uploadResumeThunk,
+  tailorResumeThunk,
+  completeTailoringThunk,
+  fetchResumes
 } from '../store/resumeSlice';
+import apiService from '../services/apiService';
 import { Resume, TailoredResume } from '../types';
 import ResumeTailoringProcessor from '../components/ResumeTailoringProcessor';
 import COLORS from '../constants/colors';
 
 export default function ResumeScreen() {
-  const dispatch = useDispatch();
+  const dispatch: AppDispatch = useDispatch();
   const insets = useSafeAreaInsets();
   const { currentUser } = useSelector((state: RootState) => state.user);
   const { resumes, tailoredResumes, isProcessing } = useSelector((state: RootState) => state.resume);
@@ -43,6 +47,7 @@ export default function ResumeScreen() {
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [selectedResumeForRename, setSelectedResumeForRename] = useState<Resume | null>(null);
   const [newResumeName, setNewResumeName] = useState('');
+  const [currentTailoredResumeId, setCurrentTailoredResumeId] = useState<string | null>(null);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
 
   const [tailoringForm, setTailoringForm] = useState({
@@ -70,32 +75,17 @@ export default function ResumeScreen() {
           return;
         }
 
-        // Create resumes directory if it doesn't exist
-        const resumesDir = `${FileSystem.documentDirectory}resumes/`;
-        const dirInfo = await FileSystem.getInfoAsync(resumesDir);
-        if (!dirInfo.exists) {
-          await FileSystem.makeDirectoryAsync(resumesDir, { intermediates: true });
-        }
+        // Dispatch upload thunk directly (no local copy needed)
+        // pass the full file asset
+        dispatch(uploadResumeThunk({
+          userId: currentUser.id,
+          file: file,
+          name: file.name.replace('.pdf', '')
+        }));
 
-        // Copy file to permanent location
-        const permanentUri = `${resumesDir}${Date.now()}_${file.name}`;
-        await FileSystem.copyAsync({
-          from: file.uri,
-          to: permanentUri,
-        });
-
-        const newResume: Resume = {
-          id: Date.now().toString(),
-          name: file.name.replace('.pdf', ''),
-          fileName: file.name,
-          fileUri: permanentUri, // Use permanent URI instead of temp
-          uploadedAt: new Date().toISOString(),
-          isPrimary: resumes.length === 0, // First resume becomes primary
-          tailoredVersions: [],
-        };
-
-        dispatch(addResume(newResume));
-        Alert.alert('Success', 'Resume uploaded successfully!');
+        // Optimistic UI or wait for thunk?
+        // Thunk handles success/error. We can show a toast or rely on state.
+        // Alert.alert('Success', 'Resume uploaded successfully!'); // Thunk will update state list.
       }
     } catch (error) {
       console.error('Error uploading resume:', error);
@@ -126,8 +116,10 @@ export default function ResumeScreen() {
               console.error('Error deleting file:', error);
             }
 
-            // Delete from Redux
-            dispatch(deleteResume(resumeId));
+            // Delete from Redux and Backend
+            if (currentUser?.id) {
+              dispatch(deleteResumeThunk({ userId: currentUser.id, resumeId }));
+            }
           },
         },
       ]
@@ -135,16 +127,21 @@ export default function ResumeScreen() {
   };
 
   const handleSetPrimary = (resumeId: string) => {
-    dispatch(setPrimaryResume(resumeId));
+    if (currentUser?.id) {
+      dispatch(setPrimaryResumeThunk({ userId: currentUser.id, resumeId }));
+    }
   };
 
   const handleRenameResume = () => {
     if (!selectedResumeForRename || !newResumeName.trim()) return;
 
-    dispatch(updateResumeName({
-      id: selectedResumeForRename.id,
-      name: newResumeName.trim(),
-    }));
+    if (currentUser?.id) {
+      dispatch(renameResumeThunk({
+        userId: currentUser.id,
+        resumeId: selectedResumeForRename.id,
+        name: newResumeName.trim(),
+      }));
+    }
 
     setShowRenameModal(false);
     setSelectedResumeForRename(null);
@@ -157,52 +154,84 @@ export default function ResumeScreen() {
     setShowRenameModal(true);
   };
 
-  const handleStartTailoring = () => {
+  const handleStartTailoring = async () => {
     if (!tailoringForm.selectedResumeId || !tailoringForm.companyName.trim() ||
       !tailoringForm.positionTitle.trim() || !tailoringForm.jobDescription.trim()) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
-    dispatch(startResumeTailoring({
-      resumeId: tailoringForm.selectedResumeId,
-      companyName: tailoringForm.companyName.trim(),
-      positionTitle: tailoringForm.positionTitle.trim(),
-      jobDescription: tailoringForm.jobDescription.trim(),
-    }));
+    const selectedResume = resumes.find(r => r.id === tailoringForm.selectedResumeId);
 
-    setShowTailoringModal(false);
-    // Add a small delay to allow the first modal to close completely before opening the next one
-    // This prevents issues on iOS where the second modal might not appear
-    setTimeout(() => {
-      setShowProcessingModal(true);
-    }, 500);
+    if (currentUser?.id && selectedResume) {
+      // Reset ID before starting
+      setCurrentTailoredResumeId(null);
+
+      const resultAction = await dispatch(tailorResumeThunk({
+        userId: currentUser.id,
+        resumeId: selectedResume.id,
+        jobDescription: tailoringForm.jobDescription.trim(),
+        jobTitle: tailoringForm.positionTitle.trim(),
+        companyName: tailoringForm.companyName.trim()
+      }));
+
+      if (tailorResumeThunk.fulfilled.match(resultAction)) {
+        const payload = resultAction.payload as any;
+        if (payload.id) {
+          setCurrentTailoredResumeId(payload.id);
+
+          setShowTailoringModal(false);
+          // Add a small delay to allow the first modal to close completely before opening the next one
+          setTimeout(() => {
+            setShowProcessingModal(true);
+          }, 500);
+        } else {
+          Alert.alert('Error', 'Failed to start tailoring: Invalid response from server');
+        }
+      } else {
+        const errorMsg = typeof resultAction.payload === 'string' ? resultAction.payload : 'Unknown error';
+        Alert.alert('Error', `Failed to start tailoring: ${errorMsg}`);
+      }
+    }
   };
 
-  const handleTailoringComplete = (fileUri: string) => {
-    const tailoredResume: TailoredResume = {
-      id: Date.now().toString(),
-      originalResumeId: tailoringForm.selectedResumeId,
-      companyName: tailoringForm.companyName,
-      positionTitle: tailoringForm.positionTitle,
-      jobDescription: tailoringForm.jobDescription,
-      tailoredAt: new Date().toISOString(),
-      fileUri,
-      processingStatus: 'completed',
-    };
+  const handleTailoringComplete = async (tempFileUri: string) => {
+    try {
+      // 1. Move file to persistent storage
+      // 1. We NO LONGER move to permanent local storage manually.
+      // We upload the temp file directly to the backend.
+      // const fileName = `tailored-${Date.now()}.pdf`;
+      // const permanentUri = `${FileSystem.documentDirectory}${fileName}`;
+      // await FileSystem.moveAsync(...) <-- Removed
 
-    dispatch(completeTailoring(tailoredResume));
-    setShowProcessingModal(false);
+      const fileToUpload = tempFileUri; // Use the temp file generated by the PDF creator
 
-    // Reset form
-    setTailoringForm({
-      selectedResumeId: '',
-      companyName: '',
-      positionTitle: '',
-      jobDescription: '',
-    });
+      // 2. Update backend/redux (Uploads the file)
+      if (currentUser?.id && currentTailoredResumeId) {
+        await dispatch(completeTailoringThunk({
+          userId: currentUser.id,
+          tailoredResumeId: currentTailoredResumeId,
+          fileUri: fileToUpload
+        }));
+      } else {
+        console.error('Missing user ID or tailored resume ID');
+      }
 
-    Alert.alert('Success', 'Resume tailored and saved successfully!');
+      setShowProcessingModal(false);
+      setTailoringForm({
+        selectedResumeId: '',
+        companyName: '',
+        positionTitle: '',
+        jobDescription: '',
+      });
+      setCurrentTailoredResumeId(null);
+      Alert.alert('Success', 'Resume tailored and saved successfully!');
+
+    } catch (error) {
+      console.error('Error saving tailored resume:', error);
+      Alert.alert('Error', 'Failed to save generated resume.');
+      setShowProcessingModal(false);
+    }
   };
 
   const handlePreviewTailoredResume = async (resume: TailoredResume) => {
@@ -212,16 +241,33 @@ export default function ResumeScreen() {
     }
 
     try {
-      const fileInfo = await FileSystem.getInfoAsync(resume.fileUri);
-      if (!fileInfo.exists) {
-        Alert.alert('Error', 'The file has been deleted from your device.');
-        return;
+      let previewUri = resume.fileUri;
+
+      // Check if it's a remote URL (starts with /api or http)
+      const isRemote = previewUri.startsWith('/api') || previewUri.startsWith('http');
+
+      if (isRemote) {
+        // Construct full URL
+        const fullUrl = previewUri.startsWith('http') ? previewUri : `${apiService.getBaseURL()}${previewUri}`;
+        const localFileName = `${resume.id}-tailored.pdf`;
+        const localPath = `${FileSystem.documentDirectory}${localFileName}`;
+
+        // Download using authenticated helper
+        await apiService.downloadFile(fullUrl, localPath);
+        previewUri = localPath;
+      } else {
+        // Legacy: Check local file existence
+        const fileInfo = await FileSystem.getInfoAsync(previewUri);
+        if (!fileInfo.exists) {
+          Alert.alert('Error', 'File not found locally. It may have been deleted.');
+          return;
+        }
       }
 
-      setPreviewUri(resume.fileUri);
+      setPreviewUri(previewUri);
     } catch (error) {
       console.error('Error previewing resume:', error);
-      Alert.alert('Error', 'Failed to open resume preview');
+      Alert.alert('Error', 'Failed to download or open resume preview');
     }
   };
 
@@ -234,10 +280,13 @@ export default function ResumeScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            dispatch(deleteTailoredResume(id));
-          },
-        },
+          onPress: async () => {
+            // Use the thunk to delete from backend AND redux
+            if (currentUser?.id) {
+              await dispatch(deleteTailoredResumeThunk({ userId: currentUser.id, tailoredResumeId: id }));
+            }
+          }
+        }
       ]
     );
   };

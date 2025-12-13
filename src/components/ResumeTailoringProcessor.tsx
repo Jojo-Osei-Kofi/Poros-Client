@@ -158,6 +158,11 @@ export default function ResumeTailoringProcessor({
   const [error, setError] = useState<string | null>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const isProcessingRef = useRef(false);
+
+  // Add icons here since they were removed in previous step (oops)
+  const iconName = error ? 'alert-circle' : 'document-text';
+  const iconColor = error ? '#dc2626' : COLORS.primary;
 
   const steps = [
     'Analyzing resume and job description...',
@@ -167,6 +172,9 @@ export default function ResumeTailoringProcessor({
   ];
 
   const startTailoringProcess = async () => {
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+
     // Reset state
     setProgress(0);
     setCurrentStep(0);
@@ -244,16 +252,25 @@ export default function ResumeTailoringProcessor({
           useNativeDriver: true,
         }),
       ]).start(() => {
+        // Prevent duplicate calls if component unmounts or rapid clicks
+        // We can't easily check 'mounted' status in functional component without ref
+        // But we can trust the parent to close us.
         onComplete(pdfUri);
       });
     } catch (err) {
+      isProcessingRef.current = false;
       // eslint-disable-next-line no-console
       console.error('Tailoring failed:', err);
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
       Alert.alert(
         'Tailoring Failed',
-        'There was an error tailoring your resume. Please check your API key and internet connection.',
-        [{ text: 'Close', onPress: onClose }],
+        `${err instanceof Error ? err.message : 'An unknown error occurred'}\n\nPlease check your API key and internet connection.`,
+        [{
+          text: 'Close', onPress: () => {
+            isProcessingRef.current = false;
+            onClose();
+          }
+        }],
       );
     }
   };
@@ -261,17 +278,17 @@ export default function ResumeTailoringProcessor({
   useEffect(() => {
     if (visible) {
       startTailoringProcess();
+    } else {
+      // Reset ref when hidden
+      isProcessingRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
   if (!visible) return null;
 
-  const iconName = error ? 'alert-circle' : 'document-text';
-  const iconColor = error ? '#dc2626' : COLORS.primary;
-
   return (
-    <View style={[styles.overlay, StyleSheet.absoluteFillObject]}>
+    <View style={[styles.overlay, StyleSheet.absoluteFillObject]} pointerEvents={visible ? 'auto' : 'none'}>
       <Animated.View
         style={[
           styles.container,

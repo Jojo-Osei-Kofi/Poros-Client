@@ -12,9 +12,10 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDispatch } from 'react-redux';
-import { setUser } from '../store/userSlice';
+import { signupUser } from '../store/userSlice';
 import { initializeTargetCompaniesFromSignup } from '../store/userTargetCompaniesSlice';
 import { User } from '../types';
+import { AppDispatch } from '../store';
 import { CompanyMatcher } from '../utils/companyMatching';
 import { targetCompanies } from '../data/companiesData';
 import DropdownSelector from '../components/DropdownSelector';
@@ -24,6 +25,9 @@ import COLORS from '../constants/colors';
 
 interface PersonalInfo {
   name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
   linkedinProfile: string;
 }
 
@@ -41,7 +45,7 @@ interface CareerPreferences {
 }
 
 export default function SignUpScreen({ navigation }: any) {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const insets = useSafeAreaInsets();
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -49,6 +53,9 @@ export default function SignUpScreen({ navigation }: any) {
 
   const [personalInfo, setPersonalInfo] = useState<PersonalInfo>({
     name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
     linkedinProfile: '',
   });
 
@@ -93,8 +100,13 @@ export default function SignUpScreen({ navigation }: any) {
   };
 
   const handleSubmit = () => {
-    if (!personalInfo.name || !education.university || !education.major) {
+    if (!personalInfo.name || !personalInfo.email || !personalInfo.password || !education.university || !education.major) {
       Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+
+    if (personalInfo.password !== personalInfo.confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
       return;
     }
 
@@ -102,9 +114,10 @@ export default function SignUpScreen({ navigation }: any) {
     const matchedCompanyIds = CompanyMatcher.getMatchedCompanyIds(companyTexts);
     const unmatchedCompanies = CompanyMatcher.getUnmatchedCompanies(companyTexts);
 
-    const newUser: User = {
-      id: Date.now().toString(),
+    const newUser: any = {
       name: personalInfo.name,
+      email: personalInfo.email.toLowerCase(),
+      password: personalInfo.password,
       linkedinProfile: personalInfo.linkedinProfile,
       university: education.university,
       major: education.major,
@@ -115,14 +128,19 @@ export default function SignUpScreen({ navigation }: any) {
       targetLocations: careerPreferences.targetLocations,
       resumeUri: resumeUri || undefined,
       weeklyGoal: 5,
-      createdAt: new Date().toISOString(),
     };
 
-    dispatch(setUser(newUser));
-
-    if (matchedCompanyIds.length > 0) {
-      dispatch(initializeTargetCompaniesFromSignup(matchedCompanyIds));
-    }
+    dispatch(signupUser(newUser))
+      .unwrap()
+      .then(({ user }: { user: User }) => {
+        if (matchedCompanyIds.length > 0) {
+          dispatch(initializeTargetCompaniesFromSignup(matchedCompanyIds));
+        }
+        // Navigate or show success? The auth listener in App.tsx typically handles navigation on auth state change
+      })
+      .catch((error: any) => {
+        Alert.alert('Signup Failed', error.toString());
+      });
   };
 
   const renderStep = () => {
@@ -138,6 +156,35 @@ export default function SignUpScreen({ navigation }: any) {
               onChangeText={(text) => setPersonalInfo({ ...personalInfo, name: text })}
               placeholder="Enter your full name"
             />
+
+            <Text style={styles.inputLabel}>Email *</Text>
+            <TextInput
+              style={styles.input}
+              value={personalInfo.email}
+              onChangeText={(text) => setPersonalInfo({ ...personalInfo, email: text })}
+              placeholder="Enter your email"
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+
+            <Text style={styles.inputLabel}>Password *</Text>
+            <TextInput
+              style={styles.input}
+              value={personalInfo.password}
+              onChangeText={(text) => setPersonalInfo({ ...personalInfo, password: text })}
+              placeholder="Create a password"
+              secureTextEntry
+            />
+
+            <Text style={styles.inputLabel}>Confirm Password *</Text>
+            <TextInput
+              style={styles.input}
+              value={personalInfo.confirmPassword}
+              onChangeText={(text) => setPersonalInfo({ ...personalInfo, confirmPassword: text })}
+              placeholder="Confirm your password"
+              secureTextEntry
+            />
+
             <Text style={styles.inputLabel}>LinkedIn Profile</Text>
             <TextInput
               style={styles.input}
@@ -275,39 +322,39 @@ export default function SignUpScreen({ navigation }: any) {
         keyboardShouldPersistTaps="handled"
       >
         <View style={[styles.header, { paddingTop: Math.max(insets.top - 12, 23) }]}>
-            <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Step {currentStep} of 4</Text>
-            <View style={styles.progressBar}>
-              <View style={[styles.progress, { width: `${(currentStep / 4) * 100}%` }]} />
-            </View>
+          <Text style={styles.title}>Create Account</Text>
+          <Text style={styles.subtitle}>Step {currentStep} of 4</Text>
+          <View style={styles.progressBar}>
+            <View style={[styles.progress, { width: `${(currentStep / 4) * 100}%` }]} />
           </View>
+        </View>
 
-          {renderStep()}
+        {renderStep()}
 
-          <View style={styles.buttonContainer}>
-            {currentStep > 1 && (
-              <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-                <Text style={styles.backButtonText}>Back</Text>
-              </TouchableOpacity>
-            )}
-            {currentStep < 4 ? (
-              <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-                <Text style={styles.nextButtonText}>Next</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-                <Text style={styles.submitButtonText}>Create Account</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+        <View style={styles.buttonContainer}>
+          {currentStep > 1 && (
+            <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+              <Text style={styles.backButtonText}>Back</Text>
+            </TouchableOpacity>
+          )}
+          {currentStep < 4 ? (
+            <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
+              <Text style={styles.nextButtonText}>Next</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+              <Text style={styles.submitButtonText}>Create Account</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
-          <TouchableOpacity
-            style={styles.loginLink}
-            onPress={() => navigation.navigate('Login')}
-          >
-            <Text style={styles.loginLinkText}>Already have an account? Sign In</Text>
-          </TouchableOpacity>
-        </ScrollView>
+        <TouchableOpacity
+          style={styles.loginLink}
+          onPress={() => navigation.navigate('Login')}
+        >
+          <Text style={styles.loginLinkText}>Already have an account? Sign In</Text>
+        </TouchableOpacity>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -451,5 +498,15 @@ const styles = StyleSheet.create({
   loginLinkText: {
     color: COLORS.primary,
     fontSize: 16,
+  },
+  loginButton: {
+    paddingVertical: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  loginButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

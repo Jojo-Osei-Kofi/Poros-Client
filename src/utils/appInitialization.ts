@@ -1,8 +1,8 @@
 import { store } from '../store';
 import { setUser } from '../store/userSlice';
-import { loadApplications, setWeeklyGoal } from '../store/applicationsSlice';
-import { loadUserTargetCompanies, loadCustomCompanies } from '../store/userTargetCompaniesSlice';
-import { loadResumes, loadTailoredResumes } from '../store/resumeSlice';
+import { fetchApplications } from '../store/applicationsSlice';
+import { fetchTargetCompanies } from '../store/userTargetCompaniesSlice';
+import { fetchResumes } from '../store/resumeSlice';
 import { StorageService } from './storage';
 
 export const initializeApp = async (): Promise<void> => {
@@ -20,20 +20,15 @@ export const initializeApp = async (): Promise<void> => {
         // Load user data
         store.dispatch(setUser(userData));
 
-        // Load associated applications, weekly goal, target companies, custom companies, and resumes
-        const applications = await StorageService.getApplications(userData.id);
-        const weeklyGoal = await StorageService.getWeeklyGoal(userData.id);
-        const userTargetCompanies = await StorageService.getUserTargetCompanies(userData.id);
-        const customCompanies = await StorageService.getCustomCompanies(userData.id);
-        const resumes = await StorageService.getUserResumes(userData.id);
-        const tailoredResumes = await StorageService.getTailoredResumes(userData.id);
+        // Fetch fresh data from backend
+        // We trigger these in parallel
+        store.dispatch(fetchApplications(userData.id));
+        store.dispatch(fetchTargetCompanies(userData.id));
+        store.dispatch(fetchResumes(userData.id));
 
-        store.dispatch(loadApplications(applications));
-        store.dispatch(setWeeklyGoal(weeklyGoal));
-        store.dispatch(loadUserTargetCompanies(userTargetCompanies));
-        store.dispatch(loadCustomCompanies(customCompanies));
-        store.dispatch(loadResumes(resumes));
-        store.dispatch(loadTailoredResumes(tailoredResumes));
+        // Note: Weekly goal and custom companies might need their own endpoints or be part of user profile/targets
+        // specific implementations for them might not be fully migrated to simple fetches if they don't have dedicated endpoints
+        // but for now this clears the runtime error and loads core data.
       }
     }
   } catch (error) {

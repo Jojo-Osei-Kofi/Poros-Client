@@ -8,33 +8,41 @@ import {
   Alert,
 } from 'react-native';
 import { useDispatch } from 'react-redux';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { setUser } from '../store/userSlice';
+import { loginUser } from '../store/userSlice';
+import { fetchApplications } from '../store/applicationsSlice';
+import { fetchTargetCompanies } from '../store/userTargetCompaniesSlice';
+import { fetchResumes } from '../store/resumeSlice';
+import { AppDispatch } from '../store';
 import { User } from '../types';
 import COLORS from '../constants/colors';
 
 export default function LoginScreen({ navigation }: any) {
-  const dispatch = useDispatch();
-  const [name, setName] = useState('');
+  const dispatch = useDispatch<AppDispatch>();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!name.trim()) {
-      Alert.alert('Error', 'Please enter your name');
+    if (!email.trim() || !password.trim()) {
+      Alert.alert('Error', 'Please enter both email and password');
       return;
     }
 
     setIsLoading(true);
     try {
-      const userData = await AsyncStorage.getItem(`user_${name.toLowerCase()}`);
-      if (userData) {
-        const user: User = JSON.parse(userData);
-        dispatch(setUser(user));
-      } else {
-        Alert.alert('User Not Found', 'No account found with this name. Please sign up first.');
+      const result = await dispatch(loginUser({ email: email.toLowerCase(), password })).unwrap();
+
+      // Fetch user data immediately after login
+      if (result && result.user && result.user.id) {
+        const userId = result.user.id;
+        // Trigger fetches in parallel
+        dispatch(fetchApplications(userId));
+        dispatch(fetchTargetCompanies(userId));
+        dispatch(fetchResumes(userId));
       }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to log in. Please try again.');
+      // Navigation is handled by AppNavigator observing isAuthenticated
+    } catch (error: any) {
+      Alert.alert('Login Failed', error.toString());
     } finally {
       setIsLoading(false);
     }
@@ -47,13 +55,23 @@ export default function LoginScreen({ navigation }: any) {
         <Text style={styles.subtitle}>Sign in to your Team Fun account</Text>
 
         <View style={styles.formContainer}>
-          <Text style={styles.inputLabel}>Name</Text>
+          <Text style={styles.inputLabel}>Email</Text>
           <TextInput
             style={styles.input}
-            value={name}
-            onChangeText={setName}
-            placeholder="Enter your name"
-            autoCapitalize="words"
+            value={email}
+            onChangeText={setEmail}
+            placeholder="Enter your email"
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+
+          <Text style={styles.inputLabel}>Password</Text>
+          <TextInput
+            style={styles.input}
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Enter your password"
+            secureTextEntry
           />
 
           <TouchableOpacity

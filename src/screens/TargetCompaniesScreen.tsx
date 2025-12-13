@@ -16,16 +16,40 @@ import { Ionicons } from '@expo/vector-icons';
 import { targetCompanies } from '../data/companiesData';
 import { CompanyRecommendation, RoleType, ChecklistItem } from '../types';
 import { CompanyTargetCard } from '../components/CompanyTargetCard';
-import { RootState } from '../store';
-import { addTargetCompany, removeTargetCompany, addCustomCompany, removeCustomCompany, toggleChecklistItem } from '../store/userTargetCompaniesSlice';
+import { RootState, AppDispatch } from '../store';
+import {
+  addTargetCompany,
+  removeTargetCompany,
+  addCustomCompany,
+  removeCustomCompany,
+  toggleChecklistItem,
+  addTargetCompanyThunk,
+  removeTargetCompanyThunk,
+  removeCustomCompanyThunk,
+  syncTargetsToBackend
+} from '../store/userTargetCompaniesSlice';
+import { toggleChecklistThunk, fetchAllChecklistProgress } from '../store/checklistSlice';
 import { format } from 'date-fns';
 import DropdownSelector from '../components/DropdownSelector';
 import COLORS from '../constants/colors';
 
 export default function TargetCompaniesScreen() {
   const insets = useSafeAreaInsets();
-  const dispatch = useDispatch();
-  const { targetCompanies: userTargetCompanies, customCompanies, checklistCompletions } = useSelector((state: RootState) => state.userTargetCompanies);
+  const dispatch = useDispatch<AppDispatch>();
+  const { currentUser } = useSelector((state: RootState) => state.user);
+  // Select checklist progress from the correct slice
+  const { progress: checklistProgress } = useSelector((state: RootState) => state.checklist);
+
+  // Fetch checklist progress when screen loads or userId changes
+  useEffect(() => {
+    if (currentUser?.id) {
+      dispatch(fetchAllChecklistProgress(currentUser.id));
+    }
+  }, [dispatch, currentUser?.id]);
+  // Restore the original selector for other data
+  const { targetCompanies: userTargetCompanies, customCompanies } = useSelector((state: RootState) => state.userTargetCompanies);
+
+
   const [selectedCompany, setSelectedCompany] = useState<CompanyRecommendation | null>(null);
   const [selectedRole, setSelectedRole] = useState<RoleType>('Full-time');
   const [activeTab, setActiveTab] = useState<'timeline' | 'events' | 'courses' | 'checklist'>('timeline');
@@ -86,9 +110,9 @@ export default function TargetCompaniesScreen() {
       }
 
       if (userTargetCompanyIds.includes(companyId)) {
-        dispatch(removeTargetCompany(companyId));
+        dispatch(removeTargetCompanyThunk(companyId));
       } else {
-        dispatch(addTargetCompany({ companyId }));
+        dispatch(addTargetCompanyThunk({ companyId }));
       }
 
       // Small delay to allow state to update properly
@@ -128,7 +152,7 @@ export default function TargetCompaniesScreen() {
           company.id &&
           !userTargetCompanyIds.includes(company.id)) {
           // Dispatch action and wait for it to complete
-          dispatch(addTargetCompany({ companyId: company.id }));
+          dispatch(addTargetCompanyThunk({ companyId: company.id }));
           // Small delay to prevent overwhelming the state management
           await new Promise(resolve => setTimeout(resolve, 150));
         }
@@ -160,6 +184,9 @@ export default function TargetCompaniesScreen() {
 
       if (addCustomCompany.fulfilled.match(result)) {
         // Success!
+        // Sync to backend immediately
+        dispatch(syncTargetsToBackend());
+
         Alert.alert('Success', `${newCompanyName} has been added to your target companies!`);
         setNewCompanyName('');
         setShowAddCompanyModal(false);
@@ -193,10 +220,15 @@ export default function TargetCompaniesScreen() {
           onPress: () => {
             if (company.isCustom) {
               // Remove custom company
-              dispatch(removeCustomCompany(company.id));
+              dispatch(removeCustomCompanyThunk(company.id));
             } else {
               // Remove predefined company from targets
-              dispatch(removeTargetCompany(company.id));
+              dispatch(removeTargetCompanyThunk(company.id));
+            }
+
+            // Close the details view if deleting the currently selected company
+            if (selectedCompany?.id === company.id) {
+              setSelectedCompany(null);
             }
           },
         },
@@ -420,7 +452,10 @@ export default function TargetCompaniesScreen() {
                   <Text style={styles.categoryTitle}>{category}</Text>
                   {items.map((item) => {
                     // Get completion state from Redux
-                    const isCompleted = checklistCompletions[selectedCompany.id]?.[item.id] || false;
+                    // Check both ID (for local session) and Title (for persisted state)
+                    const isCompleted = checklistProgress[selectedCompany.id]?.[item.id] ||
+                      checklistProgress[selectedCompany.id]?.[item.title] ||
+                      false;
 
                     return (
                       <View key={item.id} style={styles.checklistItem}>
@@ -428,9 +463,11 @@ export default function TargetCompaniesScreen() {
                           style={styles.checkbox}
                           onPress={() => {
                             if (selectedCompany.id) {
-                              dispatch(toggleChecklistItem({
+                              dispatch(toggleChecklistThunk({
                                 companyId: selectedCompany.id,
-                                checklistItemId: item.id,
+                                itemId: item.id,
+                                title: item.title,
+                                category: item.category
                               }));
                             }
                           }}
