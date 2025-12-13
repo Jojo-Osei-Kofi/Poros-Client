@@ -9,6 +9,7 @@ import {
   TextInput,
   Alert,
   Linking,
+  Image,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
@@ -21,6 +22,17 @@ import { addTargetCompany, removeTargetCompany, addCustomCompany, removeCustomCo
 import { format } from 'date-fns';
 import DropdownSelector from '../components/DropdownSelector';
 import COLORS from '../constants/colors';
+
+const getCompanyLogoUrl = (companyName: string): string | null => {
+  const logoMap: Record<string, string> = {
+    'Meta': 'https://logos-world.net/wp-content/uploads/2021/11/Meta-Logo-700x394.png',
+    'Google': 'https://static.dezeen.com/uploads/2025/05/sq-google-g-logo-update_dezeen_2364_col_0.jpg',
+    'Amazon': 'https://upload.wikimedia.org/wikipedia/commons/d/de/Amazon_icon.png',
+    'Apple': 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTJbYc7CZHe1BoOi9VxIheW1rA5Jllj40NX2w&s',
+    'TikTok': 'https://res.cloudinary.com/zenbusiness/q_auto,w_1024/v1670445040/logaster/logaster-2020-06-image4-1024x576-1024x576.jpg',
+  };
+  return logoMap[companyName] || null;
+};
 
 export default function TargetCompaniesScreen() {
   const insets = useSafeAreaInsets();
@@ -503,7 +515,15 @@ export default function TargetCompaniesScreen() {
                 <Text style={styles.closeButton}>Close</Text>
               </TouchableOpacity>
               <View style={styles.modalCompanyInfo}>
-                <Text style={styles.modalCompanyLogo}>{selectedCompany.logo}</Text>
+                {getCompanyLogoUrl(selectedCompany.name) ? (
+                  <Image 
+                    source={{ uri: getCompanyLogoUrl(selectedCompany.name)! }} 
+                    style={styles.modalCompanyLogoImage}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Text style={styles.modalCompanyLogo}>{selectedCompany.logo}</Text>
+                )}
                 <Text style={styles.modalCompanyName}>{selectedCompany.name}</Text>
               </View>
               <View style={styles.placeholder} />
@@ -840,6 +860,12 @@ const styles = StyleSheet.create({
   modalCompanyLogo: {
     fontSize: 24,
     marginBottom: 4,
+  },
+  modalCompanyLogoImage: {
+    width: 48,
+    height: 48,
+    marginBottom: 4,
+    borderRadius: 8,
   },
   modalCompanyName: {
     fontSize: 18,

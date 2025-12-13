@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { CompanyRecommendation, RoleType } from '../types';
@@ -14,6 +14,17 @@ interface CompanyTargetCardProps {
   showAddButton?: boolean;
   onDelete?: () => void; // New prop for delete action
 }
+
+const getCompanyLogoUrl = (companyName: string): string | null => {
+  const logoMap: Record<string, string> = {
+    'Meta': 'https://logos-world.net/wp-content/uploads/2021/11/Meta-Logo-700x394.png',
+    'Google': 'https://static.dezeen.com/uploads/2025/05/sq-google-g-logo-update_dezeen_2364_col_0.jpg',
+    'Amazon': 'https://upload.wikimedia.org/wikipedia/commons/d/de/Amazon_icon.png',
+    'Apple': 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTJbYc7CZHe1BoOi9VxIheW1rA5Jllj40NX2w&s',
+    'TikTok': 'https://res.cloudinary.com/zenbusiness/q_auto,w_1024/v1670445040/logaster/logaster-2020-06-image4-1024x576-1024x576.jpg',
+  };
+  return logoMap[companyName] || null;
+};
 
 export const CompanyTargetCard: React.FC<CompanyTargetCardProps> = ({
   company,
@@ -58,10 +69,20 @@ export const CompanyTargetCard: React.FC<CompanyTargetCardProps> = ({
     );
   };
 
+  const logoUrl = getCompanyLogoUrl(company.name);
+
   const cardContent = (
     <TouchableOpacity style={styles.companyCard} onPress={onPress}>
       <View style={styles.cardHeader}>
-        <Text style={styles.companyLogo}>{company.logo}</Text>
+        {logoUrl ? (
+          <Image 
+            source={{ uri: logoUrl }} 
+            style={styles.companyLogoImage}
+            resizeMode="contain"
+          />
+        ) : (
+          <Text style={styles.companyLogo}>{company.logo}</Text>
+        )}
         <View style={styles.companyInfo}>
           <Text style={styles.companyName}>{company.name}</Text>
           <Text style={styles.companyIndustry}>{company.industry}</Text>
@@ -152,6 +173,12 @@ const styles = StyleSheet.create({
   companyLogo: {
     fontSize: 32,
     marginRight: 12,
+  },
+  companyLogoImage: {
+    width: 40,
+    height: 40,
+    marginRight: 12,
+    borderRadius: 8,
   },
   companyInfo: {
     flex: 1,
