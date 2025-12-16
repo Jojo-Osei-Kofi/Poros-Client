@@ -7,7 +7,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import COLORS from '../constants/colors';
 
 import LoginScreen from '../screens/LoginScreen';
@@ -31,7 +31,6 @@ function AuthStack() {
 }
 
 function MainTabs() {
-  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -59,11 +58,11 @@ function MainTabs() {
           fontSize: 12,
           fontWeight: '500',
         },
-        // Tab bar with proper bottom spacing - raised up from bottom
+        // Tab bar with proper bottom spacing
         tabBarStyle: {
-          height: 65 + Math.max(insets.bottom, 10) + 5,
+          height: 65,
           paddingTop: 6,
-          paddingBottom: Math.max(insets.bottom, 10) + 5,
+          paddingBottom: 12,
           backgroundColor: 'white',
           borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: '#e5e7eb',
