@@ -129,8 +129,8 @@ Swipe through companies you're targeting. Tap any card to see detailed preparati
       {/* Header with improved positioning - 1/4 inch lower */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top - 2, 28) }]}>
         <View style={styles.headerContent}>
-          <View>
-            <Text style={styles.greeting}>Welcome back, {currentUser?.name}!</Text>
+          <View style={{ flex: 1, marginRight: 8 }}>
+            <Text style={styles.greeting} numberOfLines={1}>Welcome back, {currentUser?.name}!</Text>
             <Text style={styles.subtitle}>Here's your job search progress</Text>
           </View>
           <View style={styles.headerActions}>
