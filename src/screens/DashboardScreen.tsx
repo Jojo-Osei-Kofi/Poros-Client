@@ -1,4 +1,6 @@
-import React from 'react';
+import HelpButton from '../components/HelpButton';
+import HelpModal from '../components/HelpModal';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +9,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
+
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
@@ -20,6 +23,7 @@ import COLORS from '../constants/colors';
 export default function DashboardScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const dispatch = useDispatch();
+  const [showHelp, setShowHelp] = useState(false);
   const { currentUser } = useSelector((state: RootState) => state.user);
   const { applications, weeklyGoal } = useSelector((state: RootState) => state.applications);
   const { targetCompanies: userTargetCompanies } = useSelector((state: RootState) => state.userTargetCompanies);
@@ -97,6 +101,29 @@ export default function DashboardScreen({ navigation }: any) {
     </View>
   );
 
+  const helpContent = `
+**Understanding Your Dashboard**
+
+Your dashboard shows your job search progress at a glance.
+
+**What you can do:**
+• View your total applications and their status
+• Track your weekly application goal
+• See your target companies
+• Access recent applications quickly
+
+**Weekly Goal Progress:**
+The purple card shows how many applications you've submitted this week. Tap the "Goal" button in the header to change your weekly target.
+
+**Quick Actions:**
+• Find Job Opportunities: Browse recommended jobs
+• Add New Application: Log a job you applied to
+• Explore Target Companies: Research companies
+
+**Target Companies:**
+Swipe through companies you're targeting. Tap any card to see detailed preparation materials.
+`;
+
   return (
     <View style={styles.container}>
       {/* Header with improved positioning - 1/4 inch lower */}
@@ -106,12 +133,22 @@ export default function DashboardScreen({ navigation }: any) {
             <Text style={styles.greeting}>Welcome back, {currentUser?.name}!</Text>
             <Text style={styles.subtitle}>Here's your job search progress</Text>
           </View>
-          <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-            <Ionicons name="log-out-outline" size={20} color="#6b7280" />
-            <Text style={styles.signOutText}>Sign Out</Text>
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <HelpButton onPress={() => setShowHelp(true)} />
+            <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
+              <Ionicons name="log-out-outline" size={20} color="#6b7280" />
+              <Text style={styles.signOutText}>Sign Out</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
+
+      <HelpModal
+        visible={showHelp}
+        onClose={() => setShowHelp(false)}
+        title="Dashboard Help"
+        content={helpContent}
+      />
 
       {/* Scroll area with improved bottom spacing */}
       <ScrollView
@@ -328,6 +365,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9fafb',
     borderWidth: 1,
     borderColor: '#e5e7eb',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   signOutText: {
     fontSize: 14,

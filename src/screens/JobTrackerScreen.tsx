@@ -29,6 +29,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import COLORS from '../constants/colors';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
+import HelpButton from '../components/HelpButton';
+import HelpModal from '../components/HelpModal';
 
 export default function JobTrackerScreen() {
   const insets = useSafeAreaInsets();
@@ -40,6 +42,7 @@ export default function JobTrackerScreen() {
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [editingApplication, setEditingApplication] = useState<Application | null>(null);
   const [filterStatus, setFilterStatus] = useState<ApplicationStatus | 'All'>('All');
+  const [showHelp, setShowHelp] = useState(false);
 
   const [formData, setFormData] = useState({
     company: '',
@@ -58,6 +61,31 @@ export default function JobTrackerScreen() {
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
 
   const [goalInput, setGoalInput] = useState(weeklyGoal.toString());
+
+  const helpContent = `
+**Tracking Your Applications**
+
+Keep track of all your job applications in one place.
+
+**Adding an application:**
+• Tap the blue + button at the bottom right
+• Enter the company name and role (required)
+• Add job link, location, and notes (optional)
+• Tap "Save" to add it to your tracker
+
+**Viewing applications:**
+• Tap "All" to see everything
+• Tap a status (Applied, Interview, etc.) to filter
+• Tap any card to see full details
+
+**Managing applications:**
+• Long press any card to enter selection mode
+• Select multiple applications to delete in bulk
+• Tap a card in detail view to update its status
+
+**Setting your weekly goal:**
+Tap "Goal" in the header to set how many applications you want to submit each week.
+`;
 
   const filteredApplications = applications.filter(app =>
     filterStatus === 'All' || app.status === filterStatus
@@ -362,6 +390,7 @@ export default function JobTrackerScreen() {
             <>
               <Text style={styles.title}>Job Tracker</Text>
               <View style={styles.headerActions}>
+                <HelpButton onPress={() => setShowHelp(true)} />
                 <TouchableOpacity
                   style={styles.goalButton}
                   onPress={() => setShowGoalModal(true)}
@@ -375,6 +404,14 @@ export default function JobTrackerScreen() {
             </>
           )}
         </View>
+
+        <HelpModal
+          visible={showHelp}
+          onClose={() => setShowHelp(false)}
+          title="Job Tracker Help"
+          content={helpContent}
+        />
+
 
         <View style={styles.statsOverview}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsScroll}>
@@ -674,7 +711,7 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
   goalButton: {
     flexDirection: 'row',

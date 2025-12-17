@@ -1,9 +1,6 @@
 # Poros Online Help Content
 
-This document contains the source text for the application's online help system.
-**Style Guide:** Flesch-Kincaid Grade Level < 8. Short sentences. Dark text on light background (when implemented).
 
----
 
 ## 1. Feature: Tailor a Resume
 
@@ -49,8 +46,39 @@ This document contains the source text for the application's online help system.
 
 ---
 
-## Future UI Implementation Plan
-*   **Trigger:** Small 'Question Mark' (?) icon in the top-right header of each respective screen.
-*   **Display:** Modal Popup (Overlay).
-*   **Style:** White background, Black text (Open Sans or System font), minimum 16px size.
-*   **Navigation:** Close button (X) clearly visible.
+## 4. UI Implementation Details
+
+**Accessing Help:**
+*   **Trigger:** Tap the **Help icon (?)** located in the top-right corner of the header on supported screens (Dashboard, Tracker, Resume, Targets, Jobs).
+*   **Display:** A modal popup overlay appears with contextual help for the current screen.
+*   **Interaction:**
+    *   **Scroll:** The help content is fully scrollable to accommodate detailed instructions.
+    *   **Close:** Tap anywhere on the dimmed background or the Close (X) button to dismiss.
+
+**Supported Screens & Content:**
+
+### Dashboard
+*   **Overview:** Quick summary of your application progress.
+*   **Actions:** Access quick links to Recommendations, Tracker, and Targets.
+
+### Job Recommendations
+*   **Features:**
+    *   **Filters:** Filter by Job Type (Internship/New Grad) and Categories.
+    *   **Sponsorship:** View visa sponsorship status. "Other" status displays as **"no info on sponsorship available"**.
+
+### Job Tracker
+*   **Features:**
+    *   **Status Updates:** Move applications between Applied, Interview, Offer, and Rejected.
+    *   **Selection Mode:** Long-press an item to enter selection mode for bulk deletion.
+
+### Resume Manager
+*   **Features:**
+    *   **Upload:** Add new PDF resumes.
+    *   **Tailor:** Use AI to customize your resume for specific job descriptions.
+    *   **Primary:** Set a specific resume as your default for quick applying.
+
+### Target Companies
+*   **Features:**
+    *   **Research:** Access company-specific events and recommended courses.
+    *   **Checklist:** Track preparation tasks for each target company.
+

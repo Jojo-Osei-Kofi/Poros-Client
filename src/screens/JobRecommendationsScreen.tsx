@@ -27,9 +27,13 @@ import {
 import { JobListing, JobType } from '../types';
 import COLORS from '../constants/colors';
 
+import HelpButton from '../components/HelpButton';
+import HelpModal from '../components/HelpModal';
+
 export default function JobRecommendationsScreen() {
   const insets = useSafeAreaInsets();
   const dispatch = useDispatch<AppDispatch>();
+  const [showHelp, setShowHelp] = useState(false);
   const {
     jobs, loading, error, preferences, lastFetched,
   } = useSelector(
@@ -81,6 +85,27 @@ export default function JobRecommendationsScreen() {
     });
   };
 
+  const helpContent = `
+**Finding Job Opportunities**
+
+This screen shows personalized job recommendations based on your preferences.
+
+**How to find jobs:**
+• Choose between Internships or Full-Time positions
+• Tap the filter icon to refine by category
+• Pull down to refresh and see new opportunities
+• Tap any job card to open the posting
+
+**Using Filters:**
+Tap the filter icon (⚙️) in the header to:
+• Select job categories (Software, Data Science, etc.)
+• Filter by visa sponsorship requirements
+• Apply or clear all filters
+
+**Active Filters:**
+Selected filters appear as blue badges below the header. Tap the X on any badge to remove it.
+`;
+
   const renderJobCard = ({ item }: { item: JobListing }) => (
     <TouchableOpacity
       style={styles.jobCard}
@@ -113,7 +138,7 @@ export default function JobRecommendationsScreen() {
           <View style={styles.detailRow}>
             <Ionicons name="globe-outline" size={16} color="#059669" />
             <Text style={[styles.detailText, { color: '#059669' }]}>
-              {item.sponsorship}
+              {item.sponsorship === 'Other' ? 'no info on sponsorship available' : item.sponsorship}
             </Text>
           </View>
         )}
@@ -241,16 +266,27 @@ export default function JobRecommendationsScreen() {
               {jobs.length} opportunities found
             </Text>
           </View>
-          <TouchableOpacity
-            style={styles.filterButton}
-            onPress={() => setShowFilters(!showFilters)}
-          >
-            <Ionicons name="options-outline" size={20} color={COLORS.primary} />
-            {(preferences.categories.length > 0 || preferences.requiresSponsorship) && (
-              <View style={styles.filterBadge} />
-            )}
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <HelpButton onPress={() => setShowHelp(true)} />
+            <TouchableOpacity
+              style={styles.filterButton}
+              onPress={() => setShowFilters(!showFilters)}
+            >
+              <Ionicons name="options-outline" size={20} color={COLORS.primary} />
+              {(preferences.categories.length > 0 || preferences.requiresSponsorship) && (
+                <View style={styles.filterBadge} />
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
+
+        <HelpModal
+          visible={showHelp}
+          onClose={() => setShowHelp(false)}
+          title="Job Recommendations Help"
+          content={helpContent}
+        />
+
 
         {/* Job Type Selector */}
         <View style={styles.jobTypeSelector}>
@@ -365,6 +401,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 16,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   greeting: {
     fontSize: 24,

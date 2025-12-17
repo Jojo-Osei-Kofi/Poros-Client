@@ -35,6 +35,8 @@ import apiService from '../services/apiService';
 import { Resume, TailoredResume } from '../types';
 import ResumeTailoringProcessor from '../components/ResumeTailoringProcessor';
 import COLORS from '../constants/colors';
+import HelpButton from '../components/HelpButton';
+import HelpModal from '../components/HelpModal';
 
 export default function ResumeScreen() {
   const dispatch: AppDispatch = useDispatch();
@@ -56,6 +58,34 @@ export default function ResumeScreen() {
     positionTitle: '',
     jobDescription: '',
   });
+
+  const [showHelp, setShowHelp] = useState(false);
+
+  const helpContent = `
+**Resume Management**
+
+Manage multiple versions of your resume and tailor them for specific job applications.
+
+**Uploading a Resume:**
+• Tap the "Upload Resume (PDF)" button at the bottom of the screen.
+• Select a PDF file from your device.
+• This will become your newest resume version.
+
+**Setting Primary Resume:**
+• Your "Primary Resume" is the default one used for quick applications.
+• Tap "Set as Primary" on any resume card to make it your default.
+
+**Tailoring for a Job:**
+Create a custom version of your resume optimized for a specific job:
+• Tap "Tailor to Job" on any resume card.
+• Paste the Job Description and enter Company/Role details.
+• Our AI will re-write your resume to highlight relevant skills and keywords.
+• The tailored version will appear in the "Tailored Resumes" section.
+
+**Managing Resumes:**
+• Tap the "..." menu on any resume card to Rename or Delete it.
+• You can preview any resume by tapping "Preview".
+`;
 
   const primaryResume = resumes.find(resume => resume.isPrimary);
 
@@ -483,9 +513,19 @@ export default function ResumeScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top - 2, 28) }]}>
-        <Text style={styles.title}>Resume Manager</Text>
+        <View style={styles.headerTop}>
+          <Text style={styles.title}>Resume Manager</Text>
+          <HelpButton onPress={() => setShowHelp(true)} />
+        </View>
         <Text style={styles.subtitle}>Upload and tailor your resumes for specific jobs</Text>
       </View>
+
+      <HelpModal
+        visible={showHelp}
+        onClose={() => setShowHelp(false)}
+        title="Resume Help"
+        content={helpContent}
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -693,15 +733,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9fafb',
     borderBottomWidth: 0,
   },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#1f2937',
     marginBottom: 4,
+    flexShrink: 1, // Prevent text from overlapping button
   },
   subtitle: {
     fontSize: 16,
     color: '#6b7280',
+    flexShrink: 1,
   },
   section: {
     margin: 20,
@@ -781,12 +828,25 @@ const styles = StyleSheet.create({
   resumeDate: {
     fontSize: 14,
     color: '#6b7280',
+    color: '#6b7280',
     marginBottom: 2,
   },
   tailoredCount: {
     fontSize: 12,
     color: '#059669',
     fontWeight: '500',
+  },
+  loaderText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   resumeActions: {
     flexDirection: 'row',

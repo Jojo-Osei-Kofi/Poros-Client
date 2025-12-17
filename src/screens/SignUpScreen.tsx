@@ -88,7 +88,7 @@ export default function SignUpScreen({ navigation }: any) {
   };
 
   const handleNext = () => {
-    if (currentStep < 4) {
+    if (currentStep < 3) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -230,64 +230,7 @@ export default function SignUpScreen({ navigation }: any) {
           </View>
         );
 
-      case 3: {
-        const companyOptions = targetCompanies.map((c) => c.name).concat(['Other']);
-        return (
-          <View style={styles.stepContainer}>
-            <Text style={styles.stepTitle}>Career Preferences</Text>
-
-            <DropdownSelector
-              label="Target Companies"
-              options={companyOptions}
-              value={careerPreferences.targetCompanies}
-              onValueChange={(value) =>
-                setCareerPreferences({ ...careerPreferences, targetCompanies: value as string[] })
-              }
-              placeholder="Select target companies"
-              multiSelect={true}
-              allowOther={true}
-            />
-
-            <DropdownSelector
-              label="Target Roles"
-              options={TARGET_ROLES}
-              value={careerPreferences.targetRoles}
-              onValueChange={(value) =>
-                setCareerPreferences({ ...careerPreferences, targetRoles: value as string[] })
-              }
-              placeholder="Select target roles"
-              multiSelect={true}
-              allowOther={true}
-            />
-
-            <DropdownSelector
-              label="Target Industries"
-              options={TARGET_INDUSTRIES}
-              value={careerPreferences.targetIndustries}
-              onValueChange={(value) =>
-                setCareerPreferences({ ...careerPreferences, targetIndustries: value as string[] })
-              }
-              placeholder="Select target industries"
-              multiSelect={true}
-              allowOther={true}
-            />
-
-            <DropdownSelector
-              label="Target Locations"
-              options={TARGET_LOCATIONS}
-              value={careerPreferences.targetLocations}
-              onValueChange={(value) =>
-                setCareerPreferences({ ...careerPreferences, targetLocations: value as string[] })
-              }
-              placeholder="Select target locations"
-              multiSelect={true}
-              allowOther={true}
-            />
-          </View>
-        );
-      }
-
-      case 4:
+      case 3:
         return (
           <View style={styles.stepContainer}>
             <Text style={styles.stepTitle}>Resume Upload (Optional)</Text>
@@ -323,9 +266,9 @@ export default function SignUpScreen({ navigation }: any) {
       >
         <View style={[styles.header, { paddingTop: Math.max(insets.top - 12, 23) }]}>
           <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Step {currentStep} of 4</Text>
+          <Text style={styles.subtitle}>Step {currentStep} of 3</Text>
           <View style={styles.progressBar}>
-            <View style={[styles.progress, { width: `${(currentStep / 4) * 100}%` }]} />
+            <View style={[styles.progress, { width: `${(currentStep / 3) * 100}%` }]} />
           </View>
         </View>
 
@@ -337,7 +280,7 @@ export default function SignUpScreen({ navigation }: any) {
               <Text style={styles.backButtonText}>Back</Text>
             </TouchableOpacity>
           )}
-          {currentStep < 4 ? (
+          {currentStep < 3 ? (
             <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
               <Text style={styles.nextButtonText}>Next</Text>
             </TouchableOpacity>

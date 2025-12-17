@@ -52,7 +52,7 @@ export default function LoginScreen({ navigation }: any) {
     <View style={styles.container}>
       <View style={styles.content}>
         <Text style={styles.title}>Welcome Back!</Text>
-        <Text style={styles.subtitle}>Sign in to your Team Fun account</Text>
+        <Text style={styles.subtitle}>Sign in to your Poros Account</Text>
 
         <View style={styles.formContainer}>
           <Text style={styles.inputLabel}>Email</Text>

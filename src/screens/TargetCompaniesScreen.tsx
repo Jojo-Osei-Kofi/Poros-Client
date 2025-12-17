@@ -13,9 +13,13 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
+import { startOfWeek, endOfWeek, isWithinInterval, parseISO, format, addDays } from 'date-fns';
 import { targetCompanies } from '../data/companiesData';
-import { CompanyRecommendation, RoleType, ChecklistItem } from '../types';
+import { UserTargetCompany, ChecklistItem, CompanyRecommendation, RoleType } from '../types';
+import COLORS from '../constants/colors';
 import { CompanyTargetCard } from '../components/CompanyTargetCard';
+import HelpButton from '../components/HelpButton';
+import HelpModal from '../components/HelpModal';
 import { RootState, AppDispatch } from '../store';
 import {
   addTargetCompany,
@@ -29,9 +33,6 @@ import {
   syncTargetsToBackend
 } from '../store/userTargetCompaniesSlice';
 import { toggleChecklistThunk, fetchAllChecklistProgress } from '../store/checklistSlice';
-import { format } from 'date-fns';
-
-import COLORS from '../constants/colors';
 
 export default function TargetCompaniesScreen() {
   const insets = useSafeAreaInsets();
@@ -47,7 +48,7 @@ export default function TargetCompaniesScreen() {
     }
   }, [dispatch, currentUser?.id]);
   // Restore the original selector for other data
-  const { targetCompanies: userTargetCompanies, customCompanies } = useSelector((state: RootState) => state.userTargetCompanies);
+  const { targetCompanies: userTargetCompanies, customCompanies, checklistCompletions } = useSelector((state: RootState) => state.userTargetCompanies);
 
 
   const [selectedCompany, setSelectedCompany] = useState<CompanyRecommendation | null>(null);
@@ -57,6 +58,41 @@ export default function TargetCompaniesScreen() {
   const [newCompanyName, setNewCompanyName] = useState('');
   const [isAddingCompany, setIsAddingCompany] = useState(false);
   const [selectedCompaniesToAdd, setSelectedCompaniesToAdd] = useState<string[]>([]);
+  const [showHelp, setShowHelp] = useState(false);
+
+  const helpContent = `
+**Researching Target Companies**
+
+Build a list of companies you want to work for and access preparation materials.
+
+**Adding companies:**
+• Tap the blue + button at the bottom right
+• Select from the list of companies, or
+• Enter a custom company name
+• Tap "Add" to save to your targets
+
+**Viewing company details:**
+Tap any company card to see:
+• Application timeline (when to apply)
+• Upcoming events and networking opportunities
+• Recommended courses to prepare
+• Preparation checklist
+
+**Using the checklist:**
+The checklist helps you prepare for each company:
+• Interview prep tasks
+• Portfolio requirements
+• Culture study items
+• Technical skills to develop
+
+Tap the checkbox next to any item to mark it complete. Your progress is saved automatically.
+
+**Role types:**
+Switch between Internship, Full-time, Contractor, or Co-op to see relevant timelines for each role.
+
+**Removing companies:**
+Swipe left on any company card and tap "Delete" to remove it from your targets.
+`;
 
   // Get user's target company IDs with safety checks
   const userTargetCompanyIds = React.useMemo(() => {
@@ -499,7 +535,10 @@ export default function TargetCompaniesScreen() {
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: Math.max(insets.top - 2, 28) }]}>
-        <Text style={styles.title}>Target Companies</Text>
+        <View style={styles.headerTop}>
+          <Text style={styles.title}>Target Companies</Text>
+          <HelpButton onPress={() => setShowHelp(true)} />
+        </View>
 
         {/* Header info */}
         <View style={styles.headerInfo}>
@@ -523,6 +562,13 @@ export default function TargetCompaniesScreen() {
           </ScrollView>
         </View>
       </View>
+
+      <HelpModal
+        visible={showHelp}
+        onClose={() => setShowHelp(false)}
+        title="Target Companies Help"
+        content={helpContent}
+      />
 
       {/* My Targets Content */}
       {renderMyTargetsSection()}
@@ -697,11 +743,16 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
     borderBottomWidth: 0,
   },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#1f2937',
-    marginBottom: 16,
   },
   roleSelector: {
     marginBottom: 16,
