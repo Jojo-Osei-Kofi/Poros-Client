@@ -18,10 +18,27 @@ export const tailorResume = async (resumeUri: string, jobDetails: JobDetails): P
             throw new Error('Anthropic API Key is missing. Please check your .env file and restart the app.');
         }
 
+        // Check if the URI is a remote URL
+        let fileToRead = resumeUri;
+        let isTempFile = false;
+
+        if (resumeUri.startsWith('http')) {
+            const timestamp = Date.now();
+            const tempFileUri = `${FileSystem.cacheDirectory}temp_resume_${timestamp}.pdf`;
+            const downloadRes = await FileSystem.downloadAsync(resumeUri, tempFileUri);
+            fileToRead = downloadRes.uri;
+            isTempFile = true;
+        }
+
         // Read the file as Base64
-        const resumeBase64 = await FileSystem.readAsStringAsync(resumeUri, {
+        const resumeBase64 = await FileSystem.readAsStringAsync(fileToRead, {
             encoding: 'base64',
         });
+
+        // Clean up temp file if we created one
+        if (isTempFile) {
+            await FileSystem.deleteAsync(fileToRead, { idempotent: true });
+        }
 
         const prompt = `
     You are an expert resume writer. I will provide you with a resume (in PDF format) and a job description.

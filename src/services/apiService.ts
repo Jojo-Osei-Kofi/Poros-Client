@@ -1,6 +1,6 @@
 // API Service for connecting to poros-data-service backend
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import {
   User,
   Application,
@@ -10,7 +10,7 @@ import {
   ChecklistItem
 } from '../types';
 
-const API_BASE_URL = 'http://192.168.1.152:3000';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.152:3000';
 const TOKEN_STORAGE_KEY = 'auth_token';
 
 interface ApiResponse<T> {
@@ -107,8 +107,13 @@ class ApiService {
 
       // Debug logging
       if (!response.ok) {
-        console.error(`[API] Error ${response.status} for ${options.method || 'GET'} ${endpoint}:`, typeof data === 'object' ? JSON.stringify(data, null, 2) : data);
-        console.error(`[API] Full URL that failed: ${url}`);
+        const errorContent = typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
+        if (response.status >= 400 && response.status < 500) {
+          console.warn(`[API] Warning ${response.status} for ${options.method || 'GET'} ${endpoint}:`, errorContent);
+        } else {
+          console.error(`[API] Error ${response.status} for ${options.method || 'GET'} ${endpoint}:`, errorContent);
+          console.error(`[API] Full URL that failed: ${url}`);
+        }
       } else {
         console.log('[API] Success:', endpoint);
       }
@@ -209,10 +214,26 @@ class ApiService {
   }
 
   async createCompany(company: Partial<CompanyRecommendation>): Promise<ApiResponse<CompanyRecommendation>> {
-    return this.request<CompanyRecommendation>('/api/companies', {
+    const response = await this.request<CompanyRecommendation>('/api/companies', {
       method: 'POST',
       body: JSON.stringify(company),
     });
+
+    // If company already exists, try to find it in the list (or backend could return it, but for now we search)
+    if (response.error && response.error.includes('Company already exists')) {
+      console.log('[API] Company exists, fetching existing company...');
+      // Ideally backend would return the ID in the 400 error, but we can search or just fail gracefully.
+      // Better approach: Let's fetch all companies and find it by name.
+      const companiesRes = await this.getCompanies();
+      if (companiesRes.data) {
+        const existing = companiesRes.data.find(c => c.name.toLowerCase() === company.name?.toLowerCase());
+        if (existing) {
+          return { data: existing };
+        }
+      }
+    }
+
+    return response;
   }
 
   // Checklist endpoints
@@ -399,12 +420,7 @@ class ApiService {
     return this.request<TailoredResume[]>('/api/resumes/tailored');
   }
 
-  async updateTailoredResume(userId: string, tailoredResumeId: string, updates: { fileUri?: string, processingStatus?: 'processing' | 'completed' | 'failed' }) {
-    return this.request<TailoredResume>(`/api/resumes/tailored/${tailoredResumeId}`, {
-      method: 'PUT',
-      body: JSON.stringify(updates),
-    });
-  }
+
 
   async deleteTailoredResume(userId: string, tailoredResumeId: string) {
     return this.request<{ message: string; id: string }>(`/api/resumes/tailored/${tailoredResumeId}`, {

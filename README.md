@@ -20,11 +20,16 @@ EXPO_PUBLIC_TAVILY_API_KEY=tvly-...
 
 ### 3. Critical: Configure Local IP
 The app needs to know where your backend running.
-1.  Open `src/services/apiService.ts`.
-2.  Find `const API_BASE_URL = ...`.
-3.  **Update this to your computer's local LAN IP address.**
-    *   Example: `http://192.168.1.5:3000`
+1.  Open your `.env` file.
+2.  Add or update the `EXPO_PUBLIC_API_URL` variable with **your computer's local LAN IP address**.
+    ```env
+    EXPO_PUBLIC_API_URL=http://192.168.1.5:3000
+    ```
     *   **Do NOT use `localhost`** if testing on a physical device.
+3.  **Restart Expo with clear cache:**
+    ```bash
+    npx expo start --clear
+    ```
 
 **How to find your IP:**
 *   **Mac:** `Settings > Wi-Fi > Details` or terminal: `ipconfig getifaddr en0`

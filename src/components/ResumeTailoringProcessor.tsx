@@ -8,7 +8,6 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Sharing from 'expo-sharing';
 import COLORS from '../constants/colors';
 import { tailorResume } from '../services/aiService';
 import { createPdfFromHtml } from '../services/pdfService';
@@ -222,22 +221,12 @@ export default function ResumeTailoringProcessor({
       setProgress(90);
       await delay(500); // Delay to show progress
 
-      // Step 4: Finalizing & Sharing
+      // Step 4: Finalizing
       setCurrentStep(3);
       setProgress(100);
 
       // Delay to show 100% completion
       await delay(1000);
-
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(pdfUri, {
-          UTI: '.pdf',
-          mimeType: 'application/pdf',
-          dialogTitle: `Tailored Resume - ${companyName}`,
-        });
-      } else {
-        Alert.alert('Success', 'PDF generated but sharing is not available on this device.');
-      }
 
       // Close animation
       Animated.parallel([
@@ -354,7 +343,7 @@ export default function ResumeTailoringProcessor({
                 }
 
                 return (
-                  <View key={step} style={styles.stepIndicatorContainer}>
+                  <View key={`step-${index}`} style={styles.stepIndicatorContainer}>
                     <View
                       style={[
                         styles.stepIndicator,

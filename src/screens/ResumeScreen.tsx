@@ -16,9 +16,9 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
+import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import { format } from 'date-fns';
-import * as Sharing from 'expo-sharing';
 import {
   deleteResumeThunk,
   deleteTailoredResumeThunk,
@@ -61,35 +61,48 @@ export default function ResumeScreen() {
 
   const handleUploadResume = async () => {
     try {
+      console.log('[ResumeScreen] Starting document picker...');
       const result = await DocumentPicker.getDocumentAsync({
         type: 'application/pdf',
         copyToCacheDirectory: true,
         multiple: false,
       });
 
+      console.log('[ResumeScreen] Picker result:', result.canceled ? 'Canceled' : 'Selected');
+
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const file = result.assets[0];
+        console.log('[ResumeScreen] File selected:', file.name, file.uri);
 
         if (!currentUser) {
-          Alert.alert('Error', 'User not found');
+          Alert.alert('Error', 'User not found. Please log in again.');
           return;
         }
 
-        // Dispatch upload thunk directly (no local copy needed)
-        // pass the full file asset
-        dispatch(uploadResumeThunk({
+        // Show loading state (optimistic or just alert)
+        Alert.alert('Uploading...', 'Please wait while we upload your resume.');
+
+        // Dispatch upload thunk
+        const actionResult = await dispatch(uploadResumeThunk({
           userId: currentUser.id,
           file: file,
           name: file.name.replace('.pdf', '')
         }));
 
-        // Optimistic UI or wait for thunk?
-        // Thunk handles success/error. We can show a toast or rely on state.
-        // Alert.alert('Success', 'Resume uploaded successfully!'); // Thunk will update state list.
+        if (uploadResumeThunk.fulfilled.match(actionResult)) {
+          console.log('[ResumeScreen] Upload success');
+          Alert.alert('Success', 'Resume uploaded successfully!');
+        } else if (uploadResumeThunk.rejected.match(actionResult)) {
+          const errorMsg = actionResult.payload as string || 'Unknown error';
+          console.error('[ResumeScreen] Upload failed:', errorMsg);
+          Alert.alert('Upload Failed', `Could not upload resume: ${errorMsg}`);
+        }
+      } else {
+        console.log('[ResumeScreen] No file selected or cancelled');
       }
     } catch (error) {
-      console.error('Error uploading resume:', error);
-      Alert.alert('Error', 'Failed to upload resume');
+      console.error('Error in handleUploadResume:', error);
+      Alert.alert('Error', 'An unexpected error occurred while selecting the file.');
     }
   };
 
@@ -289,6 +302,50 @@ export default function ResumeScreen() {
         }
       ]
     );
+
+  };
+
+  const handleShareTailoredResume = async (resume: TailoredResume) => {
+    if (!resume.fileUri) {
+      Alert.alert('Share Unavailable', 'The file for this tailored resume is missing.');
+      return;
+    }
+
+    try {
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (!isAvailable) {
+        Alert.alert('Error', 'Sharing is not available on this device');
+        return;
+      }
+
+      let shareUri = resume.fileUri;
+
+      // Check if it's a remote URL (starts with /api or http)
+      const isRemote = shareUri.startsWith('/api') || shareUri.startsWith('http');
+
+      if (isRemote) {
+        // Construct full URL
+        const fullUrl = shareUri.startsWith('http') ? shareUri : `${apiService.getBaseURL()}${shareUri}`;
+
+        // We need a local file to share
+        const localFileName = `${resume.id}-tailored-share.pdf`;
+        const localPath = `${FileSystem.documentDirectory}${localFileName}`;
+
+        // Download using authenticated helper
+        await apiService.downloadFile(fullUrl, localPath);
+        shareUri = localPath;
+      }
+
+      await Sharing.shareAsync(shareUri, {
+        UTI: '.pdf',
+        mimeType: 'application/pdf',
+        dialogTitle: `Share Tailored Resume - ${resume.positionTitle}`
+      });
+
+    } catch (error) {
+      console.error('Error sharing resume:', error);
+      Alert.alert('Error', 'Failed to share resume');
+    }
   };
 
   const ResumeCard = ({ resume }: { resume: Resume }) => (
@@ -360,16 +417,30 @@ export default function ResumeScreen() {
               Based on: {originalResume?.name || 'Unknown Resume'}
             </Text>
             <Text style={styles.tailoredDate}>
-              Tailored {format(new Date(tailored.tailoredAt), 'MMM dd, yyyy')}
+              Tailored {(() => {
+                if (!tailored.tailoredAt) return 'Just now';
+                const date = new Date(tailored.tailoredAt);
+                return !isNaN(date.getTime())
+                  ? format(date, 'MMM dd, yyyy')
+                  : 'Just now';
+              })()}
             </Text>
           </View>
 
-          <TouchableOpacity
-            style={styles.deleteTailoredButton}
-            onPress={() => handleDeleteTailoredResume(tailored.id)}
-          >
-            <Ionicons name="trash-outline" size={20} color="#ef4444" />
-          </TouchableOpacity>
+          <View style={styles.tailoredActions}>
+            <TouchableOpacity
+              style={styles.shareTailoredButton}
+              onPress={() => handleShareTailoredResume(tailored)}
+            >
+              <Ionicons name="share-outline" size={20} color={COLORS.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.deleteTailoredButton}
+              onPress={() => handleDeleteTailoredResume(tailored.id)}
+            >
+              <Ionicons name="trash-outline" size={20} color="#ef4444" />
+            </TouchableOpacity>
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -445,8 +516,8 @@ export default function ResumeScreen() {
         {resumes.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>My Resumes ({resumes.length})</Text>
-            {resumes.map(resume => (
-              <ResumeCard key={resume.id} resume={resume} />
+            {resumes.map((resume, index) => (
+              <ResumeCard key={resume.id || `resume-val-${index}`} resume={resume} />
             ))}
           </View>
         )}
@@ -469,8 +540,8 @@ export default function ResumeScreen() {
         {tailoredResumes.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Tailoring History ({tailoredResumes.length})</Text>
-            {tailoredResumes.map(tailored => (
-              <TailoredResumeCard key={tailored.id} tailored={tailored} />
+            {tailoredResumes.map((tailored, index) => (
+              <TailoredResumeCard key={tailored.id || `tailored-val-${index}`} tailored={tailored} />
             ))}
           </View>
         )}
@@ -507,9 +578,9 @@ export default function ResumeScreen() {
           <ScrollView style={styles.modalContent}>
             <Text style={styles.inputLabel}>Select Resume *</Text>
             <View style={styles.resumeSelector}>
-              {resumes.map(resume => (
+              {resumes.map((resume, index) => (
                 <TouchableOpacity
-                  key={resume.id}
+                  key={resume.id || `resume-opt-${index}`}
                   style={[
                     styles.resumeOption,
                     tailoringForm.selectedResumeId === resume.id && styles.selectedResumeOption,
@@ -927,6 +998,16 @@ const styles = StyleSheet.create({
   deleteTailoredButton: {
     padding: 8,
     backgroundColor: '#fee2e2',
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  tailoredActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  shareTailoredButton: {
+    padding: 8,
+    backgroundColor: '#e0f2fe',
     borderRadius: 8,
     marginLeft: 8,
   },

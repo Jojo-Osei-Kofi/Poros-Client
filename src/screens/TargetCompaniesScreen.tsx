@@ -30,7 +30,7 @@ import {
 } from '../store/userTargetCompaniesSlice';
 import { toggleChecklistThunk, fetchAllChecklistProgress } from '../store/checklistSlice';
 import { format } from 'date-fns';
-import DropdownSelector from '../components/DropdownSelector';
+
 import COLORS from '../constants/colors';
 
 export default function TargetCompaniesScreen() {
@@ -612,31 +612,9 @@ export default function TargetCompaniesScreen() {
           </View>
 
           <View style={styles.addCompanyModalContent}>
-            <DropdownSelector
-              label="Select Companies"
-              options={companyOptions}
-              value={selectedCompaniesToAdd}
-              onValueChange={handleSelectionChange}
-              placeholder={isAddingCompany ? "Adding..." : "Choose companies to add"}
-              multiSelect={true}
-              allowOther={false}
-            />
 
-            {selectedCompaniesToAdd.length > 0 && (
-              <TouchableOpacity
-                style={[styles.confirmAddButton, isAddingCompany && styles.disabledButton]}
-                onPress={handleConfirmAddCompanies}
-                disabled={isAddingCompany}
-              >
-                <Text style={[styles.confirmAddButtonText, isAddingCompany && styles.disabledButtonText]}>
-                  {isAddingCompany ? 'Adding...' : `Add ${selectedCompaniesToAdd.length} Compan${selectedCompaniesToAdd.length === 1 ? 'y' : 'ies'}`}
-                </Text>
-              </TouchableOpacity>
-            )}
 
-            <Text style={styles.orText}>or</Text>
-
-            <Text style={styles.customCompanyLabel}>Add Custom Company</Text>
+            <Text style={styles.customCompanyLabel}>Add Company</Text>
             <TextInput
               style={[styles.customCompanyInput, isAddingCompany && styles.disabledInput]}
               value={newCompanyName}
@@ -656,7 +634,7 @@ export default function TargetCompaniesScreen() {
                 styles.addCustomButtonText,
                 (!newCompanyName.trim() || isAddingCompany) && styles.disabledButtonText
               ]}>
-                {isAddingCompany ? 'Adding...' : 'Add Custom Company'}
+                {isAddingCompany ? 'Adding...' : 'Add Company'}
               </Text>
             </TouchableOpacity>
           </View>
