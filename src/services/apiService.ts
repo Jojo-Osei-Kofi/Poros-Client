@@ -10,7 +10,7 @@ import {
   ChecklistItem
 } from '../types';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.152:3000';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://poros-data-service.onrender.com';
 const TOKEN_STORAGE_KEY = 'auth_token';
 
 interface ApiResponse<T> {

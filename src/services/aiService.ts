@@ -28,7 +28,7 @@ export const tailorResume = async (resumeUri: string, jobDetails: JobDetails): P
 
         if (!hasScheme) {
             // It's a relative path from backend (e.g. /uploads/...)
-            const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.152:3000';
+            const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://poros-data-service.onrender.com';
             // Ensure we handle leading slash correctly
             const cleanPath = resumeUri.startsWith('/') ? resumeUri : `/${resumeUri}`;
             resumeUri = `${API_BASE_URL}${cleanPath}`;
