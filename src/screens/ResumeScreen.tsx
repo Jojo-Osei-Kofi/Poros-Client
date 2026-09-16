@@ -828,7 +828,6 @@ const styles = StyleSheet.create({
   resumeDate: {
     fontSize: 14,
     color: '#6b7280',
-    color: '#6b7280',
     marginBottom: 2,
   },
   tailoredCount: {

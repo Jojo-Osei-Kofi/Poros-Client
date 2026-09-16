@@ -1,197 +1,151 @@
-import { TAVILY_API_KEY } from './aiService';
+import apiService from './apiService';
 
 export interface TavilySearchResult {
-    title: string;
-    url: string;
-    content: string;
-    score: number;
+  title: string;
+  url: string;
+  content: string;
+  score: number;
 }
 
-export interface TavilyResponse {
-    results: TavilySearchResult[];
-    query: string;
+interface TavilyResponse {
+  results: TavilySearchResult[];
+  query: string;
+  error?: string;
 }
 
 export interface CompanyEvent {
-    id: string;
-    title: string;
-    type: 'Tech Talk' | 'Workshop' | 'Networking' | 'Info Session';
-    date: string;
-    description: string;
-    registrationLink?: string;
+  id: string;
+  title: string;
+  type: 'Tech Talk' | 'Workshop' | 'Networking' | 'Info Session';
+  date: string;
+  description: string;
+  registrationLink?: string;
 }
 
 export interface CompanyCourse {
-    id: string;
-    title: string;
-    provider: string;
-    duration: string;
-    level: 'Beginner' | 'Intermediate' | 'Advanced';
-    skills: string[];
-    link: string;
+  id: string;
+  title: string;
+  provider: string;
+  duration: string;
+  level: 'Beginner' | 'Intermediate' | 'Advanced';
+  skills: string[];
+  link: string;
 }
 
-/**
- * Search for real company events using Tavily API
- */
+async function researchCompany(
+  companyName: string,
+  kind: 'events' | 'courses',
+): Promise<TavilySearchResult[]> {
+  const authHeaders = await apiService.getAuthHeaders();
+  const response = await fetch(`${apiService.getBaseURL()}/api/ai/search`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders,
+    },
+    body: JSON.stringify({ companyName, kind }),
+  });
+
+  const data = await response.json() as TavilyResponse;
+  if (!response.ok) {
+    throw new Error(data.error || 'Company research failed');
+  }
+
+  return data.results || [];
+}
+
 export async function searchCompanyEvents(companyName: string): Promise<CompanyEvent[]> {
-    try {
-        const query = `${companyName} upcoming events career tech talks workshops 2026`;
+  try {
+    const results = await researchCompany(companyName, 'events');
 
-        const response = await fetch('https://api.tavily.com/search', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                api_key: TAVILY_API_KEY,
-                query: query,
-                search_depth: 'basic',
-                include_answer: false,
-                include_raw_content: false,
-                max_results: 5,
-                include_domains: [],
-                exclude_domains: [],
-            }),
-        });
+    return results.slice(0, 3).map((result, index) => {
+      const searchableText = `${result.title} ${result.content}`.toLowerCase();
+      let type: CompanyEvent['type'] = 'Info Session';
 
-        if (!response.ok) {
-            console.error('Tavily API error:', response.status, response.statusText);
-            return [];
-        }
+      if (searchableText.includes('tech talk') || searchableText.includes('technical talk')) {
+        type = 'Tech Talk';
+      } else if (searchableText.includes('workshop') || searchableText.includes('hands-on')) {
+        type = 'Workshop';
+      } else if (searchableText.includes('networking') || searchableText.includes('mixer')) {
+        type = 'Networking';
+      }
 
-        const data: TavilyResponse = await response.json();
+      const dateMatch = result.content.match(
+        /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b/i,
+      );
+      const parsedDate = dateMatch ? new Date(dateMatch[0]) : null;
+      const date = parsedDate && !Number.isNaN(parsedDate.getTime())
+        ? parsedDate.toISOString().split('T')[0]
+        : 'Date not listed';
 
-        if (!data.results || data.results.length === 0) {
-            console.log(`No events found for ${companyName}`);
-            return [];
-        }
-
-        // Parse results into events
-        const events: CompanyEvent[] = data.results.slice(0, 3).map((result, index) => {
-            // Try to extract event type from title/content
-            const content = `${result.title} ${result.content}`.toLowerCase();
-            let eventType: CompanyEvent['type'] = 'Info Session';
-
-            if (content.includes('tech talk') || content.includes('technical talk')) {
-                eventType = 'Tech Talk';
-            } else if (content.includes('workshop') || content.includes('hands-on')) {
-                eventType = 'Workshop';
-            } else if (content.includes('networking') || content.includes('mixer')) {
-                eventType = 'Networking';
-            }
-
-            // Try to extract date from content (basic approach)
-            const dateMatch = result.content.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b/i);
-            const extractedDate = dateMatch ? new Date(dateMatch[0]) : null;
-
-            // Use extracted date or default to future date
-            const eventDate = extractedDate && !isNaN(extractedDate.getTime())
-                ? extractedDate.toISOString().split('T')[0]
-                : new Date(Date.now() + (index + 1) * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-            return {
-                id: `tavily-event-${index + 1}`,
-                title: result.title,
-                type: eventType,
-                date: eventDate,
-                description: result.content.substring(0, 200) + (result.content.length > 200 ? '...' : ''),
-                registrationLink: result.url,
-            };
-        });
-
-        console.log(`Found ${events.length} events for ${companyName}`);
-        return events;
-
-    } catch (error) {
-        console.error('Error searching for company events:', error);
-        return [];
-    }
+      return {
+        id: `search-event-${index + 1}`,
+        title: result.title,
+        type,
+        date,
+        description:
+          result.content.substring(0, 200)
+          + (result.content.length > 200 ? '...' : ''),
+        registrationLink: result.url,
+      };
+    });
+  } catch (error) {
+    console.error('Error searching for company events:', error);
+    return [];
+  }
 }
 
-/**
- * Search for real courses related to a company using Tavily API
- */
 export async function searchCompanyCourses(companyName: string): Promise<CompanyCourse[]> {
-    try {
-        const query = `${companyName} online courses tutorials training certification`;
+  try {
+    const results = await researchCompany(companyName, 'courses');
 
-        const response = await fetch('https://api.tavily.com/search', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                api_key: TAVILY_API_KEY,
-                query: query,
-                search_depth: 'basic',
-                include_answer: false,
-                include_raw_content: false,
-                max_results: 5,
-                include_domains: [],
-                exclude_domains: [],
-            }),
-        });
+    return results.slice(0, 3).map((result, index) => {
+      const searchableText = `${result.title} ${result.content}`.toLowerCase();
+      let level: CompanyCourse['level'] = 'Intermediate';
 
-        if (!response.ok) {
-            console.error('Tavily API error for courses:', response.status, response.statusText);
-            return [];
-        }
+      if (
+        searchableText.includes('beginner')
+        || searchableText.includes('introduction')
+        || searchableText.includes('basics')
+      ) {
+        level = 'Beginner';
+      } else if (
+        searchableText.includes('advanced')
+        || searchableText.includes('expert')
+        || searchableText.includes('master')
+      ) {
+        level = 'Advanced';
+      }
 
-        const data: TavilyResponse = await response.json();
+      let provider = 'Online Platform';
+      if (result.url.includes('udemy')) provider = 'Udemy';
+      else if (result.url.includes('coursera')) provider = 'Coursera';
+      else if (result.url.includes('edx')) provider = 'edX';
+      else if (result.url.includes('pluralsight')) provider = 'Pluralsight';
+      else if (result.url.includes('linkedin')) provider = 'LinkedIn Learning';
+      else if (result.url.includes('youtube')) provider = 'YouTube';
 
-        if (!data.results || data.results.length === 0) {
-            console.log(`No courses found for ${companyName}`);
-            return [];
-        }
+      const skills = [
+        'python', 'javascript', 'react', 'java', 'sql', 'aws', 'cloud', 'data', 'api', 'web',
+      ]
+        .filter((skill) => searchableText.includes(skill))
+        .map((skill) => skill.charAt(0).toUpperCase() + skill.slice(1))
+        .slice(0, 3);
 
-        // Parse results into courses
-        const courses: CompanyCourse[] = data.results.slice(0, 3).map((result, index) => {
-            const content = `${result.title} ${result.content}`.toLowerCase();
-
-            // Determine level
-            let level: CompanyCourse['level'] = 'Intermediate';
-            if (content.includes('beginner') || content.includes('introduction') || content.includes('basics')) {
-                level = 'Beginner';
-            } else if (content.includes('advanced') || content.includes('expert') || content.includes('master')) {
-                level = 'Advanced';
-            }
-
-            // Determine provider from URL or content
-            let provider = 'Online Platform';
-            if (result.url.includes('udemy')) provider = 'Udemy';
-            else if (result.url.includes('coursera')) provider = 'Coursera';
-            else if (result.url.includes('edx')) provider = 'edX';
-            else if (result.url.includes('pluralsight')) provider = 'Pluralsight';
-            else if (result.url.includes('linkedin')) provider = 'LinkedIn Learning';
-            else if (result.url.includes('youtube')) provider = 'YouTube';
-
-            // Extract skills from content
-            const skills: string[] = [];
-            const skillKeywords = ['python', 'javascript', 'react', 'java', 'sql', 'aws', 'cloud', 'data', 'api', 'web'];
-            skillKeywords.forEach(skill => {
-                if (content.includes(skill)) {
-                    skills.push(skill.charAt(0).toUpperCase() + skill.slice(1));
-                }
-            });
-            if (skills.length === 0) skills.push('General Skills');
-
-            return {
-                id: `tavily-course-${index + 1}`,
-                title: result.title.substring(0, 80) + (result.title.length > 80 ? '...' : ''),
-                provider: provider,
-                duration: '4-8 weeks',
-                level: level,
-                skills: skills.slice(0, 3),
-                link: result.url,
-            };
-        });
-
-        console.log(`Found ${courses.length} courses for ${companyName}`);
-        return courses;
-
-    } catch (error) {
-        console.error('Error searching for company courses:', error);
-        return [];
-    }
+      return {
+        id: `search-course-${index + 1}`,
+        title:
+          result.title.substring(0, 80)
+          + (result.title.length > 80 ? '...' : ''),
+        provider,
+        duration: 'See course page',
+        level,
+        skills: skills.length ? skills : ['General Skills'],
+        link: result.url,
+      };
+    });
+  } catch (error) {
+    console.error('Error searching for company courses:', error);
+    return [];
+  }
 }

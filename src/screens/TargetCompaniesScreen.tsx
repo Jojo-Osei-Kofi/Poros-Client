@@ -388,7 +388,9 @@ Swipe left on any company card and tap "Delete" to remove it from your targets.
                       </Text>
                     </View>
                     <Text style={styles.eventDate}>
-                      {format(new Date(event.date), 'MMM dd, yyyy')}
+                      {Number.isNaN(new Date(event.date).getTime())
+                        ? 'Date not listed'
+                        : format(new Date(event.date), 'MMM dd, yyyy')}
                     </Text>
                   </View>
                   <Text style={styles.eventTitle}>{event.title}</Text>
