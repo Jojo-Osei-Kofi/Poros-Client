@@ -29,12 +29,18 @@ export const tailorResume = async (
 
     if (resolvedResumeUri.startsWith('http')) {
       temporaryFile = `${FileSystem.cacheDirectory}resume_${Date.now()}.pdf`;
-      const authHeaders = await apiService.getAuthHeaders();
+      // Never forward a Poros JWT to an external storage host.
+      const isBackendDownload = new URL(resolvedResumeUri).origin
+        === new URL(apiService.getBaseURL()).origin;
+      const authHeaders = isBackendDownload ? await apiService.getAuthHeaders() : {};
       const download = await FileSystem.downloadAsync(
         resolvedResumeUri,
         temporaryFile,
         { headers: authHeaders },
       );
+      if (download.status < 200 || download.status >= 300) {
+        throw new Error('Resume download failed');
+      }
       fileToRead = download.uri;
     }
 
