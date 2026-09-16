@@ -10,7 +10,7 @@ import {
   ChecklistItem
 } from '../types';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://poros-data-service.onrender.com';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 const TOKEN_STORAGE_KEY = 'auth_token';
 
 interface ApiResponse<T> {
@@ -72,12 +72,6 @@ class ApiService {
       // Debug logging (remove in production)
       console.log(`[API] ${options.method || 'GET'} ${url}`);
       console.log(`[API] Full URL: ${this.baseURL}${endpoint}`);
-      if (options.body) {
-        console.log('[API] Request body:', options.body);
-      }
-      if (token) {
-        console.log('[API] Token included:', token.substring(0, 20) + '...');
-      }
 
       const response = await fetch(url, {
         ...options,
@@ -270,7 +264,7 @@ class ApiService {
   // Resume endpoints
   // Note: userId is not needed in URL - backend gets it from JWT token
   async getResumes(userId: string) {
-    return this.request(`/api/resumes`);
+    return this.request<Resume[]>(`/api/resumes`);
   }
 
   async uploadResume(formData: FormData) {
@@ -338,7 +332,7 @@ class ApiService {
   }
 
   // Update tailored resume (supports file upload now)
-  async updateTailoredResume(userId: string, tailoredResumeId: string, updates: { fileUri?: string, processingStatus?: 'processing' | 'completed' | 'failed', file?: any }) {
+  async updateTailoredResume(userId: string, tailoredResumeId: string, updates: { fileUri?: string, processingStatus?: 'processing' | 'completed' | 'failed', file?: any }): Promise<ApiResponse<TailoredResume>> {
     // If we have a file or fileUri that is local, we should treat it as an upload if intended
     // Actually updates.fileUri is likely local path if we just generated it. 
     // If we want to simple update text fields, we use JSON.
@@ -370,7 +364,9 @@ class ApiService {
       });
 
       const text = await response.text();
-      return { data: JSON.parse(text) }; // Simplified error handling for brevity
+      const data = JSON.parse(text);
+      if (!response.ok) return { error: data.error || 'Upload failed' };
+      return { data };
     }
 
     return this.request<TailoredResume>(`/api/resumes/tailored/${tailoredResumeId}`, {
@@ -473,5 +469,4 @@ class ApiService {
 
 export const apiService = new ApiService(API_BASE_URL);
 export default apiService;
-
 
