@@ -34,7 +34,7 @@ export interface CompanyCourse {
 
 async function researchCompany(
   companyName: string,
-  kind: 'events' | 'courses'
+  kind: 'events' | 'courses',
 ): Promise<TavilySearchResult[]> {
   const authHeaders = await apiService.getAuthHeaders();
   const response = await fetch(`${apiService.getBaseURL()}/api/ai/search`, {
@@ -71,7 +71,7 @@ export async function searchCompanyEvents(companyName: string): Promise<CompanyE
       }
 
       const dateMatch = result.content.match(
-        /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b/i
+        /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b/i,
       );
       const parsedDate = dateMatch ? new Date(dateMatch[0]) : null;
       const date = parsedDate && !Number.isNaN(parsedDate.getTime())
@@ -84,8 +84,8 @@ export async function searchCompanyEvents(companyName: string): Promise<CompanyE
         type,
         date,
         description:
-          result.content.substring(0, 200) +
-          (result.content.length > 200 ? '...' : ''),
+          result.content.substring(0, 200)
+          + (result.content.length > 200 ? '...' : ''),
         registrationLink: result.url,
       };
     });
@@ -104,15 +104,15 @@ export async function searchCompanyCourses(companyName: string): Promise<Company
       let level: CompanyCourse['level'] = 'Intermediate';
 
       if (
-        searchableText.includes('beginner') ||
-        searchableText.includes('introduction') ||
-        searchableText.includes('basics')
+        searchableText.includes('beginner')
+        || searchableText.includes('introduction')
+        || searchableText.includes('basics')
       ) {
         level = 'Beginner';
       } else if (
-        searchableText.includes('advanced') ||
-        searchableText.includes('expert') ||
-        searchableText.includes('master')
+        searchableText.includes('advanced')
+        || searchableText.includes('expert')
+        || searchableText.includes('master')
       ) {
         level = 'Advanced';
       }
@@ -128,15 +128,15 @@ export async function searchCompanyCourses(companyName: string): Promise<Company
       const skills = [
         'python', 'javascript', 'react', 'java', 'sql', 'aws', 'cloud', 'data', 'api', 'web',
       ]
-        .filter(skill => searchableText.includes(skill))
-        .map(skill => skill.charAt(0).toUpperCase() + skill.slice(1))
+        .filter((skill) => searchableText.includes(skill))
+        .map((skill) => skill.charAt(0).toUpperCase() + skill.slice(1))
         .slice(0, 3);
 
       return {
         id: `search-course-${index + 1}`,
         title:
-          result.title.substring(0, 80) +
-          (result.title.length > 80 ? '...' : ''),
+          result.title.substring(0, 80)
+          + (result.title.length > 80 ? '...' : ''),
         provider,
         duration: 'See course page',
         level,
