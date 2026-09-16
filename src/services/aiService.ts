@@ -9,29 +9,31 @@ export interface JobDetails {
 
 export const tailorResume = async (
   resumeUri: string,
-  jobDetails: JobDetails
+  jobDetails: JobDetails,
 ): Promise<string> => {
-  let fileToRead = resumeUri;
+  let resolvedResumeUri = resumeUri;
+  let fileToRead = resolvedResumeUri;
   let temporaryFile: string | null = null;
 
   try {
-    const hasScheme =
-      resumeUri.startsWith('http') ||
-      resumeUri.startsWith('file:') ||
-      resumeUri.startsWith('content:');
+    const hasScheme = resolvedResumeUri.startsWith('http')
+      || resolvedResumeUri.startsWith('file:')
+      || resolvedResumeUri.startsWith('content:');
 
     if (!hasScheme) {
-      const cleanPath = resumeUri.startsWith('/') ? resumeUri : `/${resumeUri}`;
-      resumeUri = `${apiService.getBaseURL()}${cleanPath}`;
+      const cleanPath = resolvedResumeUri.startsWith('/')
+        ? resolvedResumeUri
+        : `/${resolvedResumeUri}`;
+      resolvedResumeUri = `${apiService.getBaseURL()}${cleanPath}`;
     }
 
-    if (resumeUri.startsWith('http')) {
+    if (resolvedResumeUri.startsWith('http')) {
       temporaryFile = `${FileSystem.cacheDirectory}resume_${Date.now()}.pdf`;
       const authHeaders = await apiService.getAuthHeaders();
       const download = await FileSystem.downloadAsync(
-        resumeUri,
+        resolvedResumeUri,
         temporaryFile,
-        { headers: authHeaders }
+        { headers: authHeaders },
       );
       fileToRead = download.uri;
     }
@@ -50,7 +52,7 @@ export const tailorResume = async (
           ...authHeaders,
         },
         body: JSON.stringify({ resumeBase64, jobDetails }),
-      }
+      },
     );
 
     const data = await response.json() as { html?: string; error?: string };
